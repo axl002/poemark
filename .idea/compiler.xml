@@ -11,8 +11,8 @@
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="getdata" target="1.5" />
-      <module name="pipeline" target="1.5" />
+      <module name="getdata" target="1.8" />
+      <module name="pipeline" target="1.8" />
     </bytecodeTargetLevel>
   </component>
 </project>

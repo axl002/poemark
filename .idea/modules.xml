@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/getdata/getdata.iml" filepath="$PROJECT_DIR$/getdata/getdata.iml" />
+      <module fileurl="file://$PROJECT_DIR$/pipeline/pipeline.iml" filepath="$PROJECT_DIR$/pipeline/pipeline.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/poemark.iml" filepath="$PROJECT_DIR$/.idea/poemark.iml" />
+    </modules>
+  </component>
+</project>

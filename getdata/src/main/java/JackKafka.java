@@ -7,11 +7,9 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 
 import java.io.*;
-
 import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-
 import java.util.Date;
 import java.util.Iterator;
 import java.util.Properties;

@@ -14,6 +14,7 @@ import org.apache.flink.streaming.api.datastream.SplitStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.api.windowing.assigners.SlidingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.triggers.Trigger;
@@ -87,7 +88,7 @@ public class PipeLine{
                     }
                 })
                 // keyBy unique key
-                .keyBy(0).window(TumblingEventTimeWindows.of(Time.seconds(20)))
+                .keyBy(0).window(SlidingEventTimeWindows.of(Time.seconds(120), Time.seconds(20)))
 
                 .trigger(new Trigger<Tuple3<String, ObjectNode, Integer>, TimeWindow>() {
 
@@ -172,8 +173,8 @@ public class PipeLine{
 
         // part 2
         // extract and return stream with unique key of sellerID+ItemID+price and count of 1
-        // map to new key of type Line
         regular.map(new MapFunction<String, Tuple3<String,ObjectNode,Integer>>() {
+        // map to new key of type Line
             @Override
             public Tuple3<String,ObjectNode,Integer> map(String noDupeInput) throws Exception {
                 ObjectNode on = parseJsonMutable(noDupeInput);
@@ -182,7 +183,7 @@ public class PipeLine{
                 String key = on.get("typeLine").asText();
                 return Tuple3.of(key, on, 1);
             }
-        }).keyBy(0).window(TumblingEventTimeWindows.of(Time.hours(6)))
+        }).keyBy(0).window(SlidingEventTimeWindows.of(Time.hours(6), Time.hours(3)))
                 .trigger(new Trigger<Tuple3<String, ObjectNode, Integer>, TimeWindow>() {
                     @Override
                     public TriggerResult onElement(Tuple3<String, ObjectNode, Integer> stringObjectNodeIntegerTuple3, long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
@@ -254,7 +255,7 @@ public class PipeLine{
                     }
                 })
                 .keyBy(0)
-                .window(TumblingEventTimeWindows.of(Time.hours(6)))
+                .window(SlidingEventTimeWindows.of(Time.hours(6), Time.hours(3)))
                 .trigger(new Trigger<Tuple5<String, ObjectNode, Integer, Double, Double>, TimeWindow>() {
                     @Override
                     public TriggerResult onElement(Tuple5<String, ObjectNode, Integer, Double, Double> stringObjectNodeIntegerDoubleDoubleTuple5, long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
