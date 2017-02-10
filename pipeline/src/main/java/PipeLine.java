@@ -51,16 +51,24 @@ public class PipeLine{
     public static Properties props;
 
     public static void main(String[] args) throws Exception {
+
+        String kafkaHost = "";
+        if(args.length == 1){
+            kafkaHost = args[0];
+        }else{
+            kafkaHost = "localhost";
+        }
+
         // create execution environment
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
         Properties props = new Properties();
         Properties outProps = new Properties();
         // setProperties();
-        props.setProperty("bootstrap.servers", "localhost:9092");
+        props.setProperty("bootstrap.servers", kafkaHost+":9092");
         props.setProperty("group.id", "zookeeper");
         props.setProperty("auto.offset.reset","latest");
-        outProps.setProperty("bootstrap.servers", "localhost:9092");
+        outProps.setProperty("bootstrap.servers", kafkaHost+":9092");
         String topic = "poe2"; // input
         String topicOut = "poe3"; // item output
         String meanOut = "poe4"; // price look up output
