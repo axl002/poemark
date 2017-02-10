@@ -56,12 +56,7 @@ public class ReadAndInsert {
 
             consumeLoop(conn);
 
-//            Cursor cursor = r.table("tv_shows").run(conn);
-//            for (Object doc : cursor) {
-//                System.out.println(doc);
-//            }
         }
-        //consumeLoop(conn);
         conn.close();
     }
 
@@ -72,16 +67,12 @@ public class ReadAndInsert {
         while(true){
             ConsumerRecords<String, String> records = consumer.poll(1000);
             ObjectMapper om = new ObjectMapper();
-            //JsonNode[] bucket = new JsonNode[records.count()];
             MapObject bucket = r.hashMap();
             for (ConsumerRecord<String, String> record : records) {
 
                 JsonNode jn = null;
                 try {
                     jn = om.readTree(record.value());
-
-                    //System.out.println(jn.toString());
-
 
                     // make key pretty
                     String cleanName = jn.get("cleanName").asText();
@@ -101,32 +92,7 @@ public class ReadAndInsert {
                             .with("price", value)
                             .with("stashName", jn.get("stashName").asText())
                             .with("privateMessage", jn.get("privateMessage").asText());
-//                    String count = jn.get("count").asText();
-//                    String accountName =jn.get("accountName").asText();
-//                    String id =jn.get("id").asText();
-//                    String x = jn.get("x").asText();
-//                    String y = jn.get("y").asText();
-//                    String note =  jn.get("note").asText();
-//                    String icon = jn.get("icon").asText();
-//                    String league = jn.get("league").asText();
 
-
-//                    r.table("itemCount").insert(r.hashMap("id",key)
-//                            .with("itemName",key)
-//                            .with("count",value)
-//                            .with("count", jn.get("count"))
-//                            .with("sellerID", jn.get("accountName").asText())
-//                            .with("itemID", jn.get("id").asText())
-//                            .with("x", jn.get("x").asText())
-//                            .with("y", jn.get("y").asText())
-//                            .with("note", jn.get("note").asText())
-//                            .with("icon", jn.get("icon").asText())
-//                            .with("league", jn.get("league").asText())
-
- //                   ).optArg("conflict","replace").run(conn);
-//                    if(bucket.size() > 200){
-//                        r.table("itemCount").insert(bucket).optArg("conflict","replace").run(conn);
-//                    }
                 }catch(IOException ioe){
                     System.out.println("fooooooo");
                     ioe.printStackTrace();

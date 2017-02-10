@@ -15,7 +15,6 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.api.windowing.assigners.SlidingEventTimeWindows;
-import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.triggers.Trigger;
 import org.apache.flink.streaming.api.windowing.triggers.TriggerResult;
@@ -39,11 +38,12 @@ import java.util.regex.Pattern;
 //Special thanks to tgrall for brilliant flink example code and dependency tree
 //github: https://github.com/tgrall/kafka-flink-101
 
-// current function 02-01-2017
+// current functionality:
 // filters out duplicates
-// filters incoming json to only be from standard league items priced in chaos orbs or exalts
+// filters incoming json to only be from standard league items priced in chaos orbs or exalts or alchs or jewlers or fusings
 // performs streaming itemcount
 // assign price based on fixed lookup
+// computer mean and std price of each item type
 
 // computer windowed average price in last 6 hours
 public class PipeLine{
@@ -61,9 +61,9 @@ public class PipeLine{
         props.setProperty("group.id", "zookeeper");
         props.setProperty("auto.offset.reset","latest");
         outProps.setProperty("bootstrap.servers", "localhost:9092");
-        String topic = "poe2";
-        String topicOut = "poe3";
-        String meanOut = "poe4";
+        String topic = "poe2"; // input
+        String topicOut = "poe3"; // item output
+        String meanOut = "poe4"; // price look up output
 
         // part 1 filter out dupes and items we are not considering
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
@@ -88,7 +88,7 @@ public class PipeLine{
                     }
                 })
                 // keyBy unique key
-                .keyBy(0).window(SlidingEventTimeWindows.of(Time.seconds(120), Time.seconds(20)))
+                .keyBy(0).window(SlidingEventTimeWindows.of(Time.hours(4), Time.hours(2)))
 
                 .trigger(new Trigger<Tuple3<String, ObjectNode, Integer>, TimeWindow>() {
 
@@ -159,6 +159,7 @@ public class PipeLine{
                     public String map(Tuple3<String, ObjectNode, Integer> noDupeInput) throws Exception {
                         return noDupeInput.f1.toString();
                     }
+                    // split stream for different processing needs of collecting all market listings and computing mean and STD
                 }).split(new OutputSelector<String>() {
                     @Override
                     public Iterable<String> select(String s) {
@@ -290,15 +291,11 @@ public class PipeLine{
                             }
                         })
                 // return simple output of name+typeLine, mean, STD
+                // use json object to string to create output string
                 .map(new MapFunction<Tuple5<String,ObjectNode,Integer,Double,Double>, String>() {
                     @Override
                     public String map(Tuple5<String, ObjectNode, Integer, Double,Double> finalOutput) throws Exception {
 
-//                String finalString = "\"name\": " + "\""+finalOutput.f0+ "\""
-//                        + ", \"avgPrice\": "+ Double.toString(finalOutput.f3/finalOutput.f2)
-//                        + ", \"STD\": " + Double.toString(getSTD(finalOutput.f2, finalOutput.f3, finalOutput.f4))
-//                        + ", \"threshold\": " + Double.toString(finalOutput.f3/finalOutput.f2
-//                        - 2*(getSTD(finalOutput.f2, finalOutput.f3, finalOutput.f4)));
                         Double avgPrice = finalOutput.f3/finalOutput.f2;
                         Double STD = getSTD(finalOutput.f2, finalOutput.f3, finalOutput.f4);
                         Double threshold = finalOutput.f3/finalOutput.f2
@@ -420,6 +417,7 @@ public class PipeLine{
                     return price/2.5;
                 }
                 else {
+                    // not listed in high value currency skip return -1
                     return -1;
                 }
             }
@@ -427,37 +425,8 @@ public class PipeLine{
         }catch (NumberFormatException nfe){
             return -3;
         }
-
+        // no price note skip return -2
         return -2;
     }
 
 }
-
-
-
-//private static class FoldInWindow implements FoldFunction<Tuple5<String, Long, Integer, Double, Double>,
-//        Tuple5<String, Long, Integer, Double, Double>> {
-//    @Override
-//    public Tuple5<String, Long, Integer, Double, Double>
-//    fold(Tuple5<String, Long, Integer, Double, Double> old,
-//         Tuple5<String, Long, Integer, Double, Double> current) throws Exception {
-//        return Tuple5.of(current.f0,current.f1,current.f2+old.f2,
-//                old.f3+current.f3, old.f4+current.f4);
-//    }
-//}
-//
-//private static class AggInWindow
-//        implements WindowFunction<Tuple5<String, Long, Integer, Double, Double>,
-//        Tuple5<String, Long, Integer, Double, Double>,String, TimeWindow> {
-//
-//    @Override
-//    public void apply(String key,
-//                      TimeWindow window,
-//                      Iterable<Tuple5<String, Long, Integer, Double, Double>> aggs,
-//                      Collector<Tuple5<String, Long, Integer, Double, Double>> collector) throws Exception {
-//        Integer count = aggs.iterator().next().getField(3);
-//        Double sums = aggs.iterator().next().getField(4);
-//        Double ss = aggs.iterator().next().getField(5);
-//        collector.collect(new Tuple5<String, Long, Integer, Double, Double>(key, window.getEnd(), count, sums, ss));
-//    }
-//}

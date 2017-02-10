@@ -45,7 +45,6 @@ public class InsertLookUp {
         Connection conn = r.connection().hostname(dbName).port(28015).connect();
         conn.use("poeapi");
         try {
-            //r.db("poeapi").tableDrop("lookUp").run(conn);
 
             r.db("poeapi").tableCreate(TABLE_NAME).run(conn);
         }
@@ -55,33 +54,22 @@ public class InsertLookUp {
 
             consumeLoop(conn);
 
-//            Cursor cursor = r.table("tv_shows").run(conn);
-//            for (Object doc : cursor) {
-//                System.out.println(doc);
-//            }
         }
-        //consumeLoop(conn);
         conn.close();
     }
-    // loop to consume poe3 topic and insert to rethinkdb
+    // loop to consume poe4 topic and insert to rethinkdb
     private static void consumeLoop(Connection conn){
 
 
         while(true){
             ConsumerRecords<String, String> records = consumer.poll(1000);
             ObjectMapper om = new ObjectMapper();
-            //JsonNode[] bucket = new JsonNode[records.count()];
             MapObject bucket = r.hashMap();
             for (ConsumerRecord<String, String> record : records) {
                 JsonNode jn = null;
-                //System.out.println(record.value());
                 try {
                     jn = om.readTree(record.value());
-                    //System.out.println(jn.toString());
-                    //System.out.println(record.value());
 
-
-                    // make key pretty
                     try{
                         String id = jn.get("cleanName").asText();
                         String avgPrice = jn.get("avgPrice").asText();
@@ -92,7 +80,6 @@ public class InsertLookUp {
                                 .with("avgPrice",Double.parseDouble(avgPrice))
                                 .with("STD",Double.parseDouble(STD) )
                                 .with("threshold", Double.parseDouble(threshold));
-                        //bucket.with("content", record.value());
                     }catch(NullPointerException npe){
                         npe.printStackTrace();
                     }
