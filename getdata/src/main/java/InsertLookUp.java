@@ -27,7 +27,7 @@ public class InsertLookUp {
 
         String dbName = args[0];
         Properties props = new Properties();
-        // THIS WORKS NOW
+
         String topic = "poe4";
         props.put("bootstrap.servers", "localhost:9092");
         props.put("group.id", "zookeeper"); // need to test if zookeeper is required group, it works but do other groups work?

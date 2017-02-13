@@ -1,7 +1,10 @@
+package pipeline;
+
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.FoldFunction;
 import org.apache.flink.api.common.functions.MapFunction;
@@ -13,12 +16,15 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SplitStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
+
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.api.windowing.assigners.SlidingEventTimeWindows;
+
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.triggers.Trigger;
 import org.apache.flink.streaming.api.windowing.triggers.TriggerResult;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
+
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer09;
 import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer09;
@@ -27,23 +33,16 @@ import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer09;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
-//Special thanks to tgrall for brilliant flink example code and dependency tree
-//github: https://github.com/tgrall/kafka-flink-101
-
-// current functionality:
 // filters out duplicates
-// filters incoming json to only be from standard league items priced in chaos orbs or exalts or alchs or jewlers or fusings
+// filters incoming json to only be from standard league items priced in chaos orbs or exalts
 // performs streaming itemcount
 // assign price based on fixed lookup
-// computer mean and std price of each item type
 
 // computer windowed average price in last 6 hours
 public class PipeLine{
@@ -51,27 +50,20 @@ public class PipeLine{
     public static Properties props;
 
     public static void main(String[] args) throws Exception {
-
-        String kafkaHost = "";
-        if(args.length == 1){
-            kafkaHost = args[0];
-        }else{
-            kafkaHost = "localhost";
-        }
-
         // create execution environment
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
         Properties props = new Properties();
         Properties outProps = new Properties();
         // setProperties();
-        props.setProperty("bootstrap.servers", kafkaHost+":9092");
+        props.setProperty("bootstrap.servers", "ec2-35-166-62-31.us-west-2.compute.amazonaws.com:9092");
         props.setProperty("group.id", "zookeeper");
         props.setProperty("auto.offset.reset","latest");
-        outProps.setProperty("bootstrap.servers", kafkaHost+":9092");
-        String topic = "poe2"; // input
-        String topicOut = "poe3"; // item output
-        String meanOut = "poe4"; // price look up output
+        outProps.setProperty("bootstrap.servers", "ec2-35-166-62-31.us-west-2.compute.amazonaws.com:9092");
+        outProps.setProperty("acks", "0");
+        String topic = "poe2";
+        String topicOut = "poe3";
+        String meanOut = "poe4";
 
         // part 1 filter out dupes and items we are not considering
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
@@ -96,30 +88,8 @@ public class PipeLine{
                     }
                 })
                 // keyBy unique key
-                .keyBy(0).window(SlidingEventTimeWindows.of(Time.hours(4), Time.hours(2)))
-
-                .trigger(new Trigger<Tuple3<String, ObjectNode, Integer>, TimeWindow>() {
-
-                    @Override
-                    public TriggerResult onElement(Tuple3<String, ObjectNode, Integer> stringObjectNodeIntegerTuple3, long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
-                        return TriggerResult.FIRE;
-                    }
-
-                    @Override
-                    public TriggerResult onProcessingTime(long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
-                        return TriggerResult.CONTINUE;
-                    }
-
-                    @Override
-                    public TriggerResult onEventTime(long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
-                        if(l >= timeWindow.maxTimestamp()){
-                            return TriggerResult.FIRE_AND_PURGE;
-                        }else{
-                            return TriggerResult.CONTINUE;
-                        }
-
-                    }
-                })
+                .keyBy(0).window(SlidingEventTimeWindows.of(Time.minutes(20),Time.minutes(5)))
+                .trigger(new StandardTrigger())
                 // aggregate and return count of unique key for de-duping
                 .fold(Tuple3.of("0", new ObjectNode(null), 0), new FoldFunction<Tuple3<String, ObjectNode, Integer>, Tuple3<String, ObjectNode, Integer>>() {
                     @Override
@@ -167,7 +137,6 @@ public class PipeLine{
                     public String map(Tuple3<String, ObjectNode, Integer> noDupeInput) throws Exception {
                         return noDupeInput.f1.toString();
                     }
-                    // split stream for different processing needs of collecting all market listings and computing mean and STD
                 }).split(new OutputSelector<String>() {
                     @Override
                     public Iterable<String> select(String s) {
@@ -182,8 +151,8 @@ public class PipeLine{
 
         // part 2
         // extract and return stream with unique key of sellerID+ItemID+price and count of 1
-        regular.map(new MapFunction<String, Tuple3<String,ObjectNode,Integer>>() {
         // map to new key of type Line
+        regular.map(new MapFunction<String, Tuple3<String,ObjectNode,Integer>>() {
             @Override
             public Tuple3<String,ObjectNode,Integer> map(String noDupeInput) throws Exception {
                 ObjectNode on = parseJsonMutable(noDupeInput);
@@ -192,27 +161,9 @@ public class PipeLine{
                 String key = on.get("typeLine").asText();
                 return Tuple3.of(key, on, 1);
             }
-        }).keyBy(0).window(SlidingEventTimeWindows.of(Time.hours(6), Time.hours(3)))
-                .trigger(new Trigger<Tuple3<String, ObjectNode, Integer>, TimeWindow>() {
-                    @Override
-                    public TriggerResult onElement(Tuple3<String, ObjectNode, Integer> stringObjectNodeIntegerTuple3, long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
-                        return TriggerResult.FIRE;
-                    }
+        }).keyBy(0).window(SlidingEventTimeWindows.of(Time.hours(6),Time.hours(1)))
+                .trigger(new StandardTrigger())
 
-                    @Override
-                    public TriggerResult onProcessingTime(long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
-                        return TriggerResult.CONTINUE;
-                    }
-
-                    @Override
-                    public TriggerResult onEventTime(long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
-                        if(l >= timeWindow.maxTimestamp()){
-                            return TriggerResult.FIRE_AND_PURGE;
-                        }else{
-                            return TriggerResult.CONTINUE;
-                        }
-                    }
-                })
                 // item count using fold
                 .fold(Tuple3.of("0", new ObjectNode(null), 0), new FoldFunction<Tuple3<String, ObjectNode, Integer>, Tuple3<String, ObjectNode, Integer>>() {
                     @Override
@@ -230,7 +181,6 @@ public class PipeLine{
                 on.put("price", parseValue(on.get("note").asText()));
                 on.put("privateMessage", createPM(on));
                 return on.toString();
-//                return "______";
             }
         }).addSink(new FlinkKafkaProducer09<String>(topicOut, new SimpleStringSchema(), outProps));
 
@@ -264,28 +214,9 @@ public class PipeLine{
                     }
                 })
                 .keyBy(0)
-                .window(SlidingEventTimeWindows.of(Time.hours(6), Time.hours(3)))
-                .trigger(new Trigger<Tuple5<String, ObjectNode, Integer, Double, Double>, TimeWindow>() {
-                    @Override
-                    public TriggerResult onElement(Tuple5<String, ObjectNode, Integer, Double, Double> stringObjectNodeIntegerDoubleDoubleTuple5, long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
-                        return TriggerResult.FIRE;
-                    }
+                .window(SlidingEventTimeWindows.of(Time.hours(6),Time.hours(1)))
+                .trigger(new StandardTrigger())
 
-                    @Override
-                    public TriggerResult onProcessingTime(long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
-                        return TriggerResult.CONTINUE;
-                    }
-
-                    @Override
-                    public TriggerResult onEventTime(long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
-                        if(l >= timeWindow.maxTimestamp()){
-                            return TriggerResult.FIRE_AND_PURGE;
-                        }else{
-                            return TriggerResult.CONTINUE;
-                        }
-
-                    }
-                })
                 // sum up price and price^2
                 .fold(Tuple5.of("0", new ObjectNode(null), 0, 0D, 0D),
                         new FoldFunction<Tuple5<String, ObjectNode, Integer, Double, Double>,
@@ -299,7 +230,6 @@ public class PipeLine{
                             }
                         })
                 // return simple output of name+typeLine, mean, STD
-                // use json object to string to create output string
                 .map(new MapFunction<Tuple5<String,ObjectNode,Integer,Double,Double>, String>() {
                     @Override
                     public String map(Tuple5<String, ObjectNode, Integer, Double,Double> finalOutput) throws Exception {
@@ -311,7 +241,6 @@ public class PipeLine{
                         finalOutput.f1.put("avgPrice", avgPrice);
                         finalOutput.f1.put("STD", STD);
                         finalOutput.f1.put("threshold", threshold);
-                        //ObjectNode finalJN = parseJsonMutable(finalString);
                         return finalOutput.f1.toString();
                     }
                 }).addSink(new FlinkKafkaProducer09<String>(meanOut, new SimpleStringSchema(), outProps));
@@ -333,6 +262,30 @@ public class PipeLine{
         }
     }
 
+    // fire on every element, also fire and purge after time window elapses
+    // this allows for every event to be processed immediately but also cleans up windows after they elapse
+    private static class StandardTrigger extends Trigger<Object, TimeWindow>{
+
+        @Override
+        public TriggerResult onElement(Object o, long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
+            return TriggerResult.FIRE;
+        }
+
+        @Override
+        public TriggerResult onProcessingTime(long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
+            return TriggerResult.CONTINUE;
+        }
+
+        @Override
+        public TriggerResult onEventTime(long l, TimeWindow timeWindow, TriggerContext triggerContext) throws Exception {
+            if(l >= timeWindow.getEnd()){
+                return TriggerResult.FIRE_AND_PURGE;
+            }else{
+                return TriggerResult.CONTINUE;
+            }
+
+        }
+    }
 
     // turn raw json string into json object
     // for editing json operations
@@ -357,7 +310,7 @@ public class PipeLine{
 
     // ayyyyyy lmao
     private static double getSTD(Integer count, Double sum, Double ss){
-        return Math.sqrt(ss/count- (sum*sum)/count/count);
+        return Math.sqrt(ss/count- (sum*sum)/(count*count));
 
     }
 
@@ -425,7 +378,6 @@ public class PipeLine{
                     return price/2.5;
                 }
                 else {
-                    // not listed in high value currency skip return -1
                     return -1;
                 }
             }
@@ -433,7 +385,7 @@ public class PipeLine{
         }catch (NumberFormatException nfe){
             return -3;
         }
-        // no price note skip return -2
+
         return -2;
     }
 
