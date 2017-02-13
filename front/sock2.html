@@ -1,0 +1,105 @@
+<html>
+<head>
+  <title>Poe Mark</title>
+  <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.no-icons.min.css" rel="stylesheet">
+  <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Market Alerts for Path of Exile</h1>
+    <hr>
+      WebSocket status : <span id="message"></span>
+    <hr>
+    <h3>Enter an item name to receive the latest deals:</h3>
+
+        <form role="form" method='POST' action='/upbox'>
+                <div class="form-group">
+                        <input type="text" name="jugoslavia" class="form-control" id="balkanbox" placeholder="Enter item name" style="max-width: 300px;" autofocus required>
+                </div>
+                <button type="submit" id="tito" class="btn btn-default">Subscribe</button>
+        </form>
+
+      <div class="row">
+        <div class="span4">
+          <table class="table table-striped table-bordered table-condensed" id="macedonia">
+            <tr>
+              <th>No.</th><th>id</th><th>value</th>
+            </tr>
+            <tr id="row1">
+              <td> 1 </td><td> id 1 </td><td id="1"> 0 </td>
+            </tr>
+
+
+            <ul id="myList">
+              <li>PMs will appear here</li>
+            </ul>
+          </table>
+        </div>
+      </div>
+  </div>
+  <script>
+    var host = window.location.host;
+    var ws = new WebSocket('ws://'+host+'/ws');
+    var $message = $('#message');
+    $("#tito").click( function(event)
+        {
+        var value = document.getElementById("balkanbox").value;
+        //console.log(host);
+                event.preventDefault();
+                $.ajax({
+
+                        url: "http://" + host + "/api?id=1&value="+value ,
+                }).done(function(){});
+        }
+    );
+
+    ws.onopen = function(){
+      $message.attr("class", 'label label-success');
+      $message.text('open');
+    };
+    ws.onmessage = function(ev){
+      $message.attr("class", 'label label-info');
+      $message.hide();
+      $message.fadeIn("slow");
+      $message.text('recieved message');
+      var json = JSON.parse(ev.data);
+      var item = JSON.parse(json.value);
+      var pm = item.privateMessage;
+      var icon = item.icon;
+      //console.log(item);
+     // $('#' + json.id).hide();
+     // $('#' + json.id).fadeIn("slow");
+     // $('#' + json.id).text(item.privateMessage);
+     // var $rowid = $('#row' + json.id);
+      var list = document.getElementById("myList");
+      var newItem = document.createElement("LI");
+      var textnode = document.createTextNode(pm);
+      var itemnode = document.createElement("IMG");
+      newItem.appendChild(textnode);
+      newItem.appendChild(itemnode);
+      var listLength = document.getElementsByTagName("li").length;
+      //console.log(listLength);
+      //var listLength = list.length;
+      if(listLength < 1){
+          list.append(newItem);
+          //console.log("barrrr");
+
+      }else{
+        //console.log(listLength);
+        list.insertBefore(newItem, list.childNodes[1]);
+      }
+      if(listLength > 9){
+        list.childNodes[10].remove();
+      }
+    };
+    ws.onclose = function(ev){
+      $message.attr("class", 'label label-important');
+      $message.text('closed');
+    };
+   ws.onerror = function(ev){
+      $message.attr("class", 'label label-warning');
+      $message.text('error occurred');
+    };
+  </script>
+</body>
+</html>
