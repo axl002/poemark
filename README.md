@@ -20,3 +20,9 @@ InsertLookUp: This reads item mean and standard deviation values from a kafka to
 #pipeline
 
 PipeLine: This reads information from a kafka topic containing json of the items for sale (written to by JackKafka). It filters the stream for duplicates, computes the mean and standard deviation of the items, and writes the items and price metrics to two distinct kafka topics which ReadAndInsert and InsertLookUp handle.
+
+#front
+
+sock.py Webserver written using tornado python. Renders sock2.html and sets up websocket to asynchronously retrieve items from a rethinkDB changefeed.
+
+sock2.html Webapp page that renders subscribed items into a list.
