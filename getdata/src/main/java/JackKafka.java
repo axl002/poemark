@@ -19,7 +19,7 @@ public class JackKafka {
 
     private static KafkaProducer<String, String> producer;
     private static int reps = 0;
-    private static int numberOfQueryToGet = 5000;
+    private static int numberOfQueryToGet = 50000;
     private static String startingKey = "0";
     private static String theSource = "http://api.pathofexile.com/public-stash-tabs?id=";
     private static String whereToDump = "testdump/";
