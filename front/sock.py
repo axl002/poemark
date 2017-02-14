@@ -43,23 +43,25 @@ class ApiHandler(web.RequestHandler):
         #print(conn)
         connection = yield conn
         print("getting cursor")
-        cursor = yield r.table('itemList').filter(lambda doc:doc['itemName'].match("(?i)" + value)).filter((r.row["price"] < 999) & (r.row["price"] > 0)).changes().run(connection)
+        cursor = yield r.table('itemList').filter(lambda doc:doc['itemName'].match("(?i)" + value)).filter((r.row["price"] < 999) & (r.row["price"] > 0)).changes(squash=True).run(connection)
         #cursor = yield r.table('itemList').filter((r.row["price"] < 999) & (r.row["price"] > 0)).changes().run(connection)
         print("prepare to loop")
         while (yield cursor.fetch_next()):
                         item = yield cursor.next()
                         item= item["new_val"]
                         #print(item)
-                        #time.sleep(2)
+                        time.sleep(1)
                         tempSTD = 0
                         avg = 0
+			itemPrice = 9999
                         try:
                                 tempItem = yield r.table('lookUp').get(item['itemName']).run(connection)
                                 tempSTD = tempItem["STD"]
                                 avg = tempItem["avgPrice"]
+				itemPrice = item["price"]
                         except:
                                 print('error getting price')
-                        if (item["price"] <= avg - tempSTD/2):
+                        if (itemPrice <= avg - tempSTD):
                                  #print(item)
                                  data = {"id": id, "value" : json.dumps(item)}
                                  data = json.dumps(data)
@@ -84,5 +86,5 @@ app = web.Application([
 ])
 
 if __name__ == '__main__':
-    app.listen(8888)
+    app.listen(80)
 ioloop.IOLoop.instance().start()
