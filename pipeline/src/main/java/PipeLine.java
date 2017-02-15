@@ -1,4 +1,4 @@
-package pipeline;
+//package pipeline;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,6 +13,7 @@ import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.collector.selector.OutputSelector;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.datastream.SplitStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
@@ -66,11 +67,17 @@ public class PipeLine{
         String meanOut = "poe4";
 
         // part 1 filter out dupes and items we are not considering
+
+
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-        SplitStream<String> stream = env
+        SingleOutputStreamOperator<String> baseStream = env
                 .addSource(new FlinkKafkaConsumer09<String>(topic, new SimpleStringSchema(), props))
-                .assignTimestampsAndWatermarks(new MyTimeStamp())
+                .assignTimestampsAndWatermarks(new MyTimeStamp());
+
+
+
+        SingleOutputStreamOperator<Tuple3<String, ObjectNode, Integer>> dedupingStream = baseStream
 
                 .map(new MapFunction<String, Tuple3<String, ObjectNode, Integer>>() {
                     @Override
@@ -88,7 +95,8 @@ public class PipeLine{
                     }
                 })
                 // keyBy unique key
-                .keyBy(0).window(SlidingEventTimeWindows.of(Time.minutes(20),Time.minutes(5)))
+                .keyBy(0)
+                .window(SlidingEventTimeWindows.of(Time.minutes(20),Time.minutes(5)))
                 .trigger(new StandardTrigger())
                 // aggregate and return count of unique key for de-duping
                 .fold(Tuple3.of("0", new ObjectNode(null), 0), new FoldFunction<Tuple3<String, ObjectNode, Integer>, Tuple3<String, ObjectNode, Integer>>() {
@@ -132,7 +140,76 @@ public class PipeLine{
                             return false;
                         }
                     }
-                }).map(new MapFunction<Tuple3<String,ObjectNode,Integer>, String>() {
+                });
+
+        SplitStream<String> stream = dedupingStream
+//                  env
+//                .addSource(new FlinkKafkaConsumer09<String>(topic, new SimpleStringSchema(), props))
+//                .assignTimestampsAndWatermarks(new MyTimeStamp())
+//
+//                .map(new MapFunction<String, Tuple3<String, ObjectNode, Integer>>() {
+//                    @Override
+//                    public Tuple3<String, ObjectNode, Integer> map(String input) throws Exception {
+//                        ObjectNode on = parseJsonMutable(input);
+//                        String key;
+//                        try {
+//                            key = on.get("accountName").asText() +
+//                                    on.get("id").asText() + on.get("note").asText();
+//                        }catch(NullPointerException npe){
+//                            key = on.get("accountName").asText() +
+//                                    on.get("id").asText();
+//                        }
+//                        return Tuple3.of(key, on, 1);
+//                    }
+//                })
+//                // keyBy unique key
+//                .keyBy(0).window(SlidingEventTimeWindows.of(Time.minutes(20),Time.minutes(5)))
+//                .trigger(new StandardTrigger())
+//                // aggregate and return count of unique key for de-duping
+//                .fold(Tuple3.of("0", new ObjectNode(null), 0), new FoldFunction<Tuple3<String, ObjectNode, Integer>, Tuple3<String, ObjectNode, Integer>>() {
+//                    @Override
+//                    public Tuple3<String, ObjectNode, Integer> fold(Tuple3<String, ObjectNode, Integer> old, Tuple3<String, ObjectNode, Integer> current) throws Exception {
+//                        return Tuple3.of(current.f0, current.f1, current.f2+old.f2);
+//                    }
+//                })
+//                // if the counter of unique id is less than or equal 1, then we have a new item, let it pass
+//                .filter(new FilterFunction<Tuple3<String, ObjectNode, Integer>>() {
+//                    @Override
+//                    public boolean filter(Tuple3<String, ObjectNode, Integer> inputWithDuplicationCounter) throws Exception {
+//                        return inputWithDuplicationCounter.f2<=1;
+//                    }
+//                })
+//                // other filtering
+//                .filter(new FilterFunction<Tuple3<String, ObjectNode, Integer>>() {
+//                    @Override
+//                    public boolean filter(Tuple3<String, ObjectNode, Integer> input) throws Exception {
+//                        try {
+//                            String outString = input.f1.get("note").asText().toLowerCase();
+//                            return outString.contains("chaos") || outString.contains("exa")
+//                                    || outString.contains("jeweller") || outString.contains("fusing")
+//                                    || outString.contains("alchemy");
+//                        }
+//                        catch (NullPointerException npe){
+//                            npe.printStackTrace();
+//                            return false;
+//                        }
+//                    }
+//                })
+//                .filter(new FilterFunction<Tuple3<String, ObjectNode, Integer>>() {
+//                    @Override
+//                    public boolean filter(Tuple3<String, ObjectNode, Integer> input) throws Exception {
+//                        String outString = input.f1.get("league").asText();
+//                        try{
+//                            return outString.contains("Standard");
+//                        }
+//                        catch (NullPointerException npe){
+//                            npe.printStackTrace();
+//                            return false;
+//                        }
+//                    }
+//                })
+
+                .map(new MapFunction<Tuple3<String,ObjectNode,Integer>, String>() {
                     @Override
                     public String map(Tuple3<String, ObjectNode, Integer> noDupeInput) throws Exception {
                         return noDupeInput.f1.toString();
@@ -181,6 +258,7 @@ public class PipeLine{
                 on.put("price", parseValue(on.get("note").asText()));
                 on.put("privateMessage", createPM(on));
                 return on.toString();
+//                return "______";
             }
         }).addSink(new FlinkKafkaProducer09<String>(topicOut, new SimpleStringSchema(), outProps));
 
@@ -262,7 +340,7 @@ public class PipeLine{
         }
     }
 
-    // fire on every element, also fire and purge after time window elapses
+    // for on every element, also fire and purge after time window elapses
     // this allows for every event to be processed immediately but also cleans up windows after they elapse
     private static class StandardTrigger extends Trigger<Object, TimeWindow>{
 
