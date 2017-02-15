@@ -10,6 +10,7 @@ import org.apache.flink.api.common.functions.FoldFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple5;
+import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.collector.selector.OutputSelector;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -70,6 +71,11 @@ public class PipeLine{
 
 
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+        // checkpointing set up every 10 mins, 1min timeout
+        env.enableCheckpointing(600000);
+        env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
+        env.getCheckpointConfig().setCheckpointTimeout(60000);
+        env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
 
         SingleOutputStreamOperator<String> baseStream = env
                 .addSource(new FlinkKafkaConsumer09<String>(topic, new SimpleStringSchema(), props))
