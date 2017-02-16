@@ -28,6 +28,8 @@
         </div>
       </div>
   </div>
+
+ 
   <script>
     var host = window.location.host;
     var ws = new WebSocket('ws://'+host+'/ws');
@@ -79,8 +81,6 @@
       if(listLength > 9){
         list.childNodes[10].remove();
       }
-      var audio = new Audio('poi.wav');
-      audio.play();
     };
     ws.onclose = function(ev){
       $message.attr("class", 'label label-important');
