@@ -79,6 +79,8 @@
       if(listLength > 9){
         list.childNodes[10].remove();
       }
+      var audio = new Audio('poi.mp3');
+      audio.play();
     };
     ws.onclose = function(ev){
       $message.attr("class", 'label label-important');

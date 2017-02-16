@@ -50,7 +50,7 @@ class ApiHandler(web.RequestHandler):
                         item = yield cursor.next()
                         item= item["new_val"]
                         #print(item)
-                        time.sleep(1)
+                        #time.sleep(1)
                         tempSTD = 0
                         avg = 0
 			itemPrice = 9999
