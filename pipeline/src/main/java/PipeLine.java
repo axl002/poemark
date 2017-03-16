@@ -72,10 +72,10 @@ public class PipeLine{
 
         env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
         // checkpointing set up every 10 mins, 1min timeout
-        env.enableCheckpointing(600000);
-        env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
-        env.getCheckpointConfig().setCheckpointTimeout(60000);
-        env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
+//        env.enableCheckpointing(600000);
+//        env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
+//        env.getCheckpointConfig().setCheckpointTimeout(60000);
+//        env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
 
         SingleOutputStreamOperator<String> baseStream = env
                 .addSource(new FlinkKafkaConsumer09<String>(topic, new SimpleStringSchema(), props))
